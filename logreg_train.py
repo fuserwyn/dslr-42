@@ -7,6 +7,7 @@ import csv
 LEARNING_RATE = 0.001
 NUM_ITERATIONS = 10000
 EPSILON = 1e-8
+BATCH_SIZE = 32
 
 # ========== Utility Functions ==========
 
@@ -44,6 +45,24 @@ def stochastic_gradient_descent(X, y, theta, lr, iterations):
             print(f"[SGD] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
     return theta
 
+def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size):
+    m = len(y)
+    for i in range(iterations):
+        indices = np.random.permutation(m)
+        X_shuffled = X[indices]
+        y_shuffled = y[indices]
+        for start in range(0, m, batch_size):
+            end = start + batch_size
+            xb = X_shuffled[start:end]
+            yb = y_shuffled[start:end]
+            hb = sigmoid(np.dot(xb, theta))
+            hb = np.clip(hb, EPSILON, 1 - EPSILON)
+            gradient = (1 / len(yb)) * np.dot(xb.T, (hb - yb))
+            theta -= lr * gradient
+        if i % 1000 == 0:
+            print(f"[MINIBATCH] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
+    return theta
+
 def normalize_features(X):
     mean = np.mean(X, axis=0)
     std = np.std(X, axis=0)
@@ -59,6 +78,8 @@ def one_vs_all(X, y, num_classes, mode="batch"):
         theta = np.zeros(n)
         if mode == "sgd":
             theta = stochastic_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
+        elif mode == "minibatch":
+            theta = mini_batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, BATCH_SIZE)
         else:
             theta = batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
         all_theta[i] = theta
@@ -68,7 +89,7 @@ def one_vs_all(X, y, num_classes, mode="batch"):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python logreg_train.py dataset_train.csv [--mode sgd|batch]")
+        print("Usage: python logreg_train.py dataset_train.csv [--mode sgd|batch|minibatch]")
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -78,8 +99,8 @@ def main():
         try:
             mode_index = sys.argv.index("--mode") + 1
             mode = sys.argv[mode_index].lower()
-            if mode not in ["sgd", "batch"]:
-                print("Invalid mode. Use 'batch' or 'sgd'.")
+            if mode not in ["sgd", "batch", "minibatch"]:
+                print("Invalid mode. Use 'batch', 'sgd', or 'minibatch'.")
                 sys.exit(1)
         except IndexError:
             print("Missing value for --mode.")

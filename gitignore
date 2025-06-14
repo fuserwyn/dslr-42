@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and plots
+*.log
+*.png
+
+# Python virtualenv files
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment variables
+.env
+*.env
+
+# VSCode / PyCharm config
+.vscode/
+.idea/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Output files
+weights.csv
+houses.csv

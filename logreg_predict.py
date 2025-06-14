@@ -1,23 +1,44 @@
 import pandas as pd
-import numpy as np
 import csv
 import sys
+import math
 
 # ====== Sigmoid function ======
 def sigmoid(z):
-    return 1 / (1 + np.exp(-z))
+    return [1 / (1 + math.exp(-val)) for val in z]
 
-# ====== Normalize with reference mean/std ======
-def normalize_features(X, mean, std):
-    std[std == 0] = 1e-8  # avoid division by zero
-    return (X - mean) / std
+# ====== Normalize with manual mean/std ======
+def manual_normalize(X):
+    mean = []
+    std = []
+    norm_X = []
+    for col in zip(*X):
+        col_list = list(col)
+        m = sum(col_list) / len(col_list)
+        s = math.sqrt(sum((x - m) ** 2 for x in col_list) / len(col_list))
+        s = s if s != 0 else 1e-8
+        mean.append(m)
+        std.append(s)
+    for row in X:
+        norm_X.append([(val - m) / s for val, m, s in zip(row, mean, std)])
+    return norm_X
 
 # ====== Load weights from CSV ======
 def load_weights(filename):
     df = pd.read_csv(filename)
     houses = df["House"].tolist()
-    weights = df.drop("House", axis=1).to_numpy()
+    weights = df.drop("House", axis=1).values.tolist()
     return houses, weights
+
+# ====== Matrix multiply ======
+def matmul(A, B):
+    result = []
+    for row in A:
+        row_result = []
+        for col in zip(*B):
+            row_result.append(sum(r * c for r, c in zip(row, col)))
+        result.append(row_result)
+    return result
 
 # ====== Main prediction logic ======
 def main():
@@ -28,7 +49,6 @@ def main():
     test_file = sys.argv[1]
     weights_file = sys.argv[2]
 
-    # === Features used for training ===
     selected_features = [
         "Herbology",
         "Charms",
@@ -37,34 +57,26 @@ def main():
         "Defense Against the Dark Arts"
     ]
 
-    # Load and clean test data
     df = pd.read_csv(test_file)
     df = df.dropna(axis=1, how='all')
-    df = df.fillna(df.mean(numeric_only=True))  # Fill missing values
+    df = df.fillna(df.mean(numeric_only=True))
 
-    X = df[selected_features].to_numpy()
+    X = df[selected_features].values.tolist()
 
-    # Load weights
     house_labels, all_theta = load_weights(weights_file)
 
-    # Compute mean and std from weights file header (retraining is better, but we estimate here)
-    # We'll recompute mean/std using test data to keep things consistent
-    mean = np.mean(X, axis=0)
-    std = np.std(X, axis=0)
-    X = normalize_features(X, mean, std)
-    X = np.clip(X, -10, 10)  # clip extremes
+    X = manual_normalize(X)
+    X = [[max(min(x, 10), -10) for x in row] for row in X]
 
-    # Add bias term
-    X = np.c_[np.ones(X.shape[0]), X]
+    # Add bias
+    X = [[1.0] + row for row in X]
 
-    # Predict using One-vs-All
-    probabilities = sigmoid(np.dot(X, all_theta.T))
-    predictions = np.argmax(probabilities, axis=1)
+    logits = matmul(X, [list(t) for t in zip(*all_theta)])
+    probs = [sigmoid(row) for row in logits]
+    predictions = [row.index(max(row)) for row in probs]
 
-    # Map index back to house name
     predicted_houses = [house_labels[i] for i in predictions]
 
-    # Save predictions
     with open("houses.csv", "w", newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["Index", "Hogwarts House"])

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 import csv
+import matplotlib.pyplot as plt
 
 # ========== Hyperparameters ==========
 LEARNING_RATE = 0.001
@@ -21,17 +22,19 @@ def cost_function(X, y, theta):
     cost = -(1 / m) * np.sum(y * np.log(h) + (1 - y) * np.log(1 - h))
     return cost
 
-def batch_gradient_descent(X, y, theta, lr, iterations):
+def batch_gradient_descent(X, y, theta, lr, iterations, cost_log):
     m = len(y)
     for i in range(iterations):
         h = sigmoid(np.dot(X, theta))
         gradient = (1 / m) * np.dot(X.T, (h - y))
         theta -= lr * gradient
         if i % 1000 == 0:
-            print(f"[BATCH] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
+            c = cost_function(X, y, theta)
+            cost_log.append((i, c))
+            print(f"[BATCH] Iteration {i} - Cost: {c:.4f}")
     return theta
 
-def stochastic_gradient_descent(X, y, theta, lr, iterations):
+def stochastic_gradient_descent(X, y, theta, lr, iterations, cost_log):
     m = len(y)
     for i in range(iterations):
         for j in range(m):
@@ -42,10 +45,12 @@ def stochastic_gradient_descent(X, y, theta, lr, iterations):
             gradient = np.dot(xi.T, (hi - yi))
             theta -= lr * gradient.flatten()
         if i % 100 == 0:
-            print(f"[SGD] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
+            c = cost_function(X, y, theta)
+            cost_log.append((i, c))
+            print(f"[SGD] Iteration {i} - Cost: {c:.4f}")
     return theta
 
-def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size):
+def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size, cost_log):
     m = len(y)
     for i in range(iterations):
         indices = np.random.permutation(m)
@@ -60,7 +65,9 @@ def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size):
             gradient = (1 / len(yb)) * np.dot(xb.T, (hb - yb))
             theta -= lr * gradient
         if i % 1000 == 0:
-            print(f"[MINIBATCH] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
+            c = cost_function(X, y, theta)
+            cost_log.append((i, c))
+            print(f"[MINIBATCH] Iteration {i} - Cost: {c:.4f}")
     return theta
 
 def normalize_features(X):
@@ -72,18 +79,34 @@ def normalize_features(X):
 def one_vs_all(X, y, num_classes, mode="batch"):
     m, n = X.shape
     all_theta = np.zeros((num_classes, n))
+    cost_logs = []
     for i in range(num_classes):
         print(f"\nTraining classifier for class {i} using {mode.upper()} GD...")
         binary_y = (y == i).astype(int)
         theta = np.zeros(n)
+        cost_log = []
         if mode == "sgd":
-            theta = stochastic_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
+            theta = stochastic_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, cost_log)
         elif mode == "minibatch":
-            theta = mini_batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, BATCH_SIZE)
+            theta = mini_batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, BATCH_SIZE, cost_log)
         else:
-            theta = batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
+            theta = batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, cost_log)
         all_theta[i] = theta
-    return all_theta
+        cost_logs.append((f"Class {i}", cost_log))
+    return all_theta, cost_logs
+
+def plot_costs(cost_logs, mode):
+    for label, log in cost_logs:
+        iters, costs = zip(*log)
+        plt.plot(iters, costs, label=label)
+    plt.xlabel("Iterations")
+    plt.ylabel("Cost")
+    plt.title(f"Training Cost vs Iteration ({mode.upper()} GD)")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f"cost_plot_{mode}.png")
+    print(f"📈 Cost plot saved as cost_plot_{mode}.png")
+    plt.clf()
 
 # ========== Main Training Logic ==========
 
@@ -141,7 +164,7 @@ def main():
     X = np.c_[np.ones(X.shape[0]), X]
 
     print(f"Starting training using {mode.upper()} gradient descent...")
-    all_theta = one_vs_all(X, y, num_classes=4, mode=mode)
+    all_theta, cost_logs = one_vs_all(X, y, num_classes=4, mode=mode)
 
     with open("weights.csv", "w", newline="") as f:
         writer = csv.writer(f)
@@ -151,6 +174,7 @@ def main():
             writer.writerow([house] + list(theta))
 
     print("✅ Training complete. Weights saved to weights.csv.")
+    plot_costs(cost_logs, mode)
 
 if __name__ == "__main__":
     main()

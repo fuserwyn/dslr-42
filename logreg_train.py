@@ -11,61 +11,84 @@ EPSILON = 1e-8
 # ========== Utility Functions ==========
 
 def sigmoid(z):
-    """Sigmoid function."""
     return 1 / (1 + np.exp(-z))
 
 def cost_function(X, y, theta):
-    """Compute logistic regression cost."""
     m = len(y)
     h = sigmoid(np.dot(X, theta))
-    h = np.clip(h, EPSILON, 1 - EPSILON)  # Prevent log(0)
+    h = np.clip(h, EPSILON, 1 - EPSILON)
     cost = -(1 / m) * np.sum(y * np.log(h) + (1 - y) * np.log(1 - h))
     return cost
 
-def gradient_descent(X, y, theta, lr, iterations):
-    """Perform batch gradient descent."""
+def batch_gradient_descent(X, y, theta, lr, iterations):
     m = len(y)
     for i in range(iterations):
         h = sigmoid(np.dot(X, theta))
         gradient = (1 / m) * np.dot(X.T, (h - y))
         theta -= lr * gradient
         if i % 1000 == 0:
-            print(f"Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
+            print(f"[BATCH] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
+    return theta
+
+def stochastic_gradient_descent(X, y, theta, lr, iterations):
+    m = len(y)
+    for i in range(iterations):
+        for j in range(m):
+            xi = X[j].reshape(1, -1)
+            yi = y[j]
+            hi = sigmoid(np.dot(xi, theta))
+            hi = np.clip(hi, EPSILON, 1 - EPSILON)
+            gradient = np.dot(xi.T, (hi - yi))
+            theta -= lr * gradient.flatten()
+        if i % 100 == 0:
+            print(f"[SGD] Iteration {i} - Cost: {cost_function(X, y, theta):.4f}")
     return theta
 
 def normalize_features(X):
-    """Normalize features using mean and std, safely."""
     mean = np.mean(X, axis=0)
     std = np.std(X, axis=0)
-    std[std == 0] = EPSILON  # Prevent division by zero
-    X_norm = (X - mean) / std
-    return X_norm, mean, std
+    std[std == 0] = EPSILON
+    return (X - mean) / std, mean, std
 
-def one_vs_all(X, y, num_classes):
-    """Train one-vs-all logistic regressions."""
+def one_vs_all(X, y, num_classes, mode="batch"):
     m, n = X.shape
     all_theta = np.zeros((num_classes, n))
     for i in range(num_classes):
-        print(f"\nTraining classifier for class {i}...")
+        print(f"\nTraining classifier for class {i} using {mode.upper()} GD...")
         binary_y = (y == i).astype(int)
         theta = np.zeros(n)
-        theta = gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
+        if mode == "sgd":
+            theta = stochastic_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
+        else:
+            theta = batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS)
         all_theta[i] = theta
     return all_theta
 
 # ========== Main Training Logic ==========
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python logreg_train.py dataset_train.csv")
+    if len(sys.argv) < 2:
+        print("Usage: python logreg_train.py dataset_train.csv [--mode sgd|batch]")
         sys.exit(1)
 
     filename = sys.argv[1]
+    mode = "batch"
+
+    if "--mode" in sys.argv:
+        try:
+            mode_index = sys.argv.index("--mode") + 1
+            mode = sys.argv[mode_index].lower()
+            if mode not in ["sgd", "batch"]:
+                print("Invalid mode. Use 'batch' or 'sgd'.")
+                sys.exit(1)
+        except IndexError:
+            print("Missing value for --mode.")
+            sys.exit(1)
+
     df = pd.read_csv(filename)
     df = df.dropna(axis=1, how='all')
     df = df.dropna(subset=["Hogwarts House"])
 
-    # === Feature Selection (You can change these later) ===
     selected_features = [
         "Herbology",
         "Charms",
@@ -74,40 +97,31 @@ def main():
         "Defense Against the Dark Arts"
     ]
 
-    X = df[selected_features].to_numpy()
-    y_raw = df["Hogwarts House"].to_numpy()
+    X = df[selected_features].copy()
+    X = X.fillna(X.mean(numeric_only=True))
+    X = X.to_numpy()
 
-    # Encode labels
+    y_raw = df["Hogwarts House"].to_numpy()
     house_to_int = {"Gryffindor": 0, "Hufflepuff": 1, "Ravenclaw": 2, "Slytherin": 3}
     y = np.array([house_to_int[house] for house in y_raw])
 
-    # Normalize features
     X, mean, std = normalize_features(X)
-
-    # Clip to prevent extreme values
     X = np.clip(X, -10, 10)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
 
-    print("🔎 Checking input data...")
+    print("🔎 Sanity check: X stats")
+    print("  Min:", np.min(X))
+    print("  Max:", np.max(X))
+    print("  Mean:", np.mean(X))
+    print("  Std:", np.std(X))
+    print("  Any NaN?", np.isnan(X).any())
+    print("  Any Inf?", np.isinf(X).any())
 
-    if np.isnan(X).any():
-        print("❌ X contains NaNs!")
-        X = np.nan_to_num(X, nan=0.0)
-
-    if np.isinf(X).any():
-        print("❌ X contains inf/-inf!")
-        X = np.where(np.isinf(X), 0.0, X)
-
-    print("✅ Cleaned input data (no NaNs or infs)")
-
-
-    # Add bias term (column of ones)
     X = np.c_[np.ones(X.shape[0]), X]
 
-    # Train One-vs-All logistic regression
-    print("Starting training...")
-    all_theta = one_vs_all(X, y, num_classes=4)
+    print(f"Starting training using {mode.upper()} gradient descent...")
+    all_theta = one_vs_all(X, y, num_classes=4, mode=mode)
 
-    # Save weights
     with open("weights.csv", "w", newline="") as f:
         writer = csv.writer(f)
         header = ["Bias"] + selected_features

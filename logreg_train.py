@@ -1,6 +1,8 @@
 import pandas as pd
 import sys
 import csv
+import math
+import random
 import matplotlib.pyplot as plt
 
 # ========== Hyperparameters ==========
@@ -12,21 +14,28 @@ BATCH_SIZE = 32
 # ========== Utility Functions ==========
 
 def sigmoid(z):
-    return 1 / (1 + np.exp(-z))
+    return [1 / (1 + math.exp(-x)) for x in z]
+
+def dot(X, theta):
+    return [sum(xi * ti for xi, ti in zip(x, theta)) for x in X]
 
 def cost_function(X, y, theta):
+    h = sigmoid(dot(X, theta))
+    cost = 0.0
     m = len(y)
-    h = sigmoid(np.dot(X, theta))
-    h = np.clip(h, EPSILON, 1 - EPSILON)
-    cost = -(1 / m) * np.sum(y * np.log(h) + (1 - y) * np.log(1 - h))
-    return cost
+    for hi, yi in zip(h, y):
+        hi = min(max(hi, EPSILON), 1 - EPSILON)
+        cost += -(yi * math.log(hi) + (1 - yi) * math.log(1 - hi))
+    return cost / m
 
 def batch_gradient_descent(X, y, theta, lr, iterations, cost_log):
     m = len(y)
     for i in range(iterations):
-        h = sigmoid(np.dot(X, theta))
-        gradient = (1 / m) * np.dot(X.T, (h - y))
-        theta -= lr * gradient
+        h = sigmoid(dot(X, theta))
+        gradient = [0] * len(theta)
+        for j in range(len(theta)):
+            gradient[j] = sum((h[k] - y[k]) * X[k][j] for k in range(m)) / m
+        theta = [theta[j] - lr * gradient[j] for j in range(len(theta))]
         if i % 1000 == 0:
             c = cost_function(X, y, theta)
             cost_log.append((i, c))
@@ -37,12 +46,12 @@ def stochastic_gradient_descent(X, y, theta, lr, iterations, cost_log):
     m = len(y)
     for i in range(iterations):
         for j in range(m):
-            xi = X[j].reshape(1, -1)
+            xi = X[j]
             yi = y[j]
-            hi = sigmoid(np.dot(xi, theta))
-            hi = np.clip(hi, EPSILON, 1 - EPSILON)
-            gradient = np.dot(xi.T, (hi - yi))
-            theta -= lr * gradient.flatten()
+            hi = 1 / (1 + math.exp(-sum(x * t for x, t in zip(xi, theta))))
+            hi = min(max(hi, EPSILON), 1 - EPSILON)
+            gradient = [(hi - yi) * x for x in xi]
+            theta = [t - lr * g for t, g in zip(theta, gradient)]
         if i % 100 == 0:
             c = cost_function(X, y, theta)
             cost_log.append((i, c))
@@ -52,17 +61,19 @@ def stochastic_gradient_descent(X, y, theta, lr, iterations, cost_log):
 def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size, cost_log):
     m = len(y)
     for i in range(iterations):
-        indices = np.random.permutation(m)
-        X_shuffled = X[indices]
-        y_shuffled = y[indices]
+        indices = list(range(m))
+        random.shuffle(indices)
         for start in range(0, m, batch_size):
             end = start + batch_size
-            xb = X_shuffled[start:end]
-            yb = y_shuffled[start:end]
-            hb = sigmoid(np.dot(xb, theta))
-            hb = np.clip(hb, EPSILON, 1 - EPSILON)
-            gradient = (1 / len(yb)) * np.dot(xb.T, (hb - yb))
-            theta -= lr * gradient
+            batch = indices[start:end]
+            xb = [X[k] for k in batch]
+            yb = [y[k] for k in batch]
+            hb = sigmoid(dot(xb, theta))
+            hb = [min(max(h, EPSILON), 1 - EPSILON) for h in hb]
+            gradient = [0] * len(theta)
+            for j in range(len(theta)):
+                gradient[j] = sum((hb[k] - yb[k]) * xb[k][j] for k in range(len(yb))) / len(yb)
+            theta = [theta[j] - lr * gradient[j] for j in range(len(theta))]
         if i % 1000 == 0:
             c = cost_function(X, y, theta)
             cost_log.append((i, c))
@@ -70,19 +81,23 @@ def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size, cost_lo
     return theta
 
 def normalize_features(X):
-    mean = np.mean(X, axis=0)
-    std = np.std(X, axis=0)
-    std[std == 0] = EPSILON
-    return (X - mean) / std, mean, std
+    cols = list(zip(*X))
+    mean = [sum(col) / len(col) for col in cols]
+    std = [
+        math.sqrt(sum((x - m) ** 2 for x in col) / len(col)) if sum((x - m) ** 2 for x in col) > 0 else EPSILON
+        for col, m in zip(cols, mean)
+    ]
+    X_norm = [[(x - m) / s for x, m, s in zip(row, mean, std)] for row in X]
+    return X_norm, mean, std
 
 def one_vs_all(X, y, num_classes, mode="batch"):
-    m, n = X.shape
-    all_theta = np.zeros((num_classes, n))
+    n = len(X[0])
+    all_theta = []
     cost_logs = []
     for i in range(num_classes):
-        print(f"\nTraining classifier for class {i} using {mode.upper()} GD...")
-        binary_y = (y == i).astype(int)
-        theta = np.zeros(n)
+        print(f"Training classifier for class {i} using {mode.upper()} GD...")
+        binary_y = [1 if val == i else 0 for val in y]
+        theta = [0.0] * n
         cost_log = []
         if mode == "sgd":
             theta = stochastic_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, cost_log)
@@ -90,7 +105,7 @@ def one_vs_all(X, y, num_classes, mode="batch"):
             theta = mini_batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, BATCH_SIZE, cost_log)
         else:
             theta = batch_gradient_descent(X, binary_y, theta, LEARNING_RATE, NUM_ITERATIONS, cost_log)
-        all_theta[i] = theta
+        all_theta.append(theta)
         cost_logs.append((f"Class {i}", cost_log))
     return all_theta, cost_logs
 
@@ -107,7 +122,7 @@ def plot_costs(cost_logs, mode):
     print(f"📈 Cost plot saved as cost_plot_{mode}.png")
     plt.clf()
 
-# ========== Main Training Logic ==========
+# ========== Main ==========
 
 def main():
     if len(sys.argv) < 2:
@@ -116,61 +131,41 @@ def main():
 
     filename = sys.argv[1]
     mode = "batch"
-
     if "--mode" in sys.argv:
-        try:
-            mode_index = sys.argv.index("--mode") + 1
-            mode = sys.argv[mode_index].lower()
-            if mode not in ["sgd", "batch", "minibatch"]:
-                print("Invalid mode. Use 'batch', 'sgd', or 'minibatch'.")
-                sys.exit(1)
-        except IndexError:
-            print("Missing value for --mode.")
-            sys.exit(1)
+        idx = sys.argv.index("--mode") + 1
+        if idx < len(sys.argv):
+            mode = sys.argv[idx].lower()
 
     df = pd.read_csv(filename)
     df = df.dropna(axis=1, how='all')
     df = df.dropna(subset=["Hogwarts House"])
 
-    selected_features = [
-        "Herbology",
-        "Charms",
-        "Ancient Runes",
-        "Potions",
-        "Defense Against the Dark Arts"
-    ]
-
-    X = df[selected_features].copy()
-    X = X.fillna(X.mean(numeric_only=True))
-    X = X.to_numpy()
-
-    y_raw = df["Hogwarts House"].to_numpy()
-    house_to_int = {"Gryffindor": 0, "Hufflepuff": 1, "Ravenclaw": 2, "Slytherin": 3}
-    y = np.array([house_to_int[house] for house in y_raw])
+    features = ["Herbology", "Charms", "Ancient Runes", "Potions", "Defense Against the Dark Arts"]
+    df = df.fillna(df.mean(numeric_only=True))
+    X = df[features].values.tolist()
+    y_raw = df["Hogwarts House"].tolist()
+    y_map = {"Gryffindor": 0, "Hufflepuff": 1, "Ravenclaw": 2, "Slytherin": 3}
+    y = [y_map[house] for house in y_raw]
 
     X, mean, std = normalize_features(X)
-    X = np.clip(X, -10, 10)
-    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    X = [[max(min(x, 10), -10) for x in row] for row in X]
+    X = [[1.0] + row for row in X]
 
-    print("🔎 Sanity check: X stats")
-    print("  Min:", np.min(X))
-    print("  Max:", np.max(X))
-    print("  Mean:", np.mean(X))
-    print("  Std:", np.std(X))
-    print("  Any NaN?", np.isnan(X).any())
-    print("  Any Inf?", np.isinf(X).any())
+    print("🔎 Sanity check:")
+    flat = sum(X, [])
+    print("  Min:", min(flat))
+    print("  Max:", max(flat))
+    print("  Mean:", sum(flat) / len(flat))
+    print("  Any NaN?", any(math.isnan(x) for x in flat))
+    print("  Any Inf?", any(math.isinf(x) for x in flat))
 
-    X = np.c_[np.ones(X.shape[0]), X]
-
-    print(f"Starting training using {mode.upper()} gradient descent...")
-    all_theta, cost_logs = one_vs_all(X, y, num_classes=4, mode=mode)
+    all_theta, cost_logs = one_vs_all(X, y, 4, mode)
 
     with open("weights.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        header = ["Bias"] + selected_features
-        writer.writerow(["House"] + header)
-        for house, theta in zip(house_to_int.keys(), all_theta):
-            writer.writerow([house] + list(theta))
+        writer.writerow(["House", "Bias"] + features)
+        for house, theta in zip(y_map.keys(), all_theta):
+            writer.writerow([house] + theta)
 
     print("✅ Training complete. Weights saved to weights.csv.")
     plot_costs(cost_logs, mode)

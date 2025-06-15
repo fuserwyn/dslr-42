@@ -42,7 +42,10 @@ def std(data, m):
     return math.sqrt(sum((x - m) ** 2 for x in data) / len(data))
 
 def percentile(data, p):
-    # Percentile calculation using linear interpolation:
+    # Percentile: shows the value below which a given percentage of observations fall.
+    # For example, the 25th percentile is the value below which 25% of the data lies.
+    # It helps understand the spread and distribution of the dataset.
+    # Calculation uses linear interpolation:
     # 1. Sort the data
     # 2. Compute index k = (n - 1) * (p / 100)
     # 3. Interpolate between data[k_floor] and data[k_ceil]

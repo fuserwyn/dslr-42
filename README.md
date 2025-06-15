@@ -108,8 +108,10 @@ Predictions are written to `houses.csv`.
 
 ```bash
 python histogram.py dataset_train.csv
-python pair_plot.py dataset_train.csv
+python histogram.py dataset_train.csv --save # to save png pictures  in folder
 python scatter_plot.py dataset_train.csv
+python pair_plot.py dataset_train.csv
+python pair_plot.py dataset_train.csv --manual # to choose visiually
 ```
 
 ---

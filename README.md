@@ -71,9 +71,31 @@ bash setup_project.sh
 source .venv/bin/activate
 ```
 
+
 ---
 
-### 1. Train the Model
+### 1. Describe the Dataset
+
+```bash
+python describe.py dataset_train.csv 
+python describe.py dataset_train.csv --bonus
+```
+
+---
+
+### 2. Visualize Data
+
+```bash
+python histogram.py dataset_train.csv
+python histogram.py dataset_train.csv --save # to save png pictures  in folder
+python scatter_plot.py dataset_train.csv
+python pair_plot.py dataset_train.csv
+python pair_plot.py dataset_train.csv --manual # to choose visiually
+```
+
+---
+
+### 3. Train the Model
 
 ```bash
 python logreg_train.py dataset_train.csv              # Default (batch)
@@ -85,16 +107,7 @@ Weights are saved to `weights.csv`. Cost plots are saved per mode.
 
 ---
 
-### 2. Describe the Dataset
-
-```bash
-python describe.py dataset_train.csv 
-python describe.py dataset_train.csv --bonus
-```
-
----
-
-### 3. Predict Hogwarts Houses
+### 4. Predict Hogwarts Houses
 
 ```bash
 python logreg_predict.py dataset_test.csv weights.csv
@@ -104,17 +117,6 @@ Predictions are written to `houses.csv`.
 
 ---
 
-### 4. Visualize Data
-
-```bash
-python histogram.py dataset_train.csv
-python histogram.py dataset_train.csv --save # to save png pictures  in folder
-python scatter_plot.py dataset_train.csv
-python pair_plot.py dataset_train.csv
-python pair_plot.py dataset_train.csv --manual # to choose visiually
-```
-
----
 
 ## 🖼️ Sample Output
 

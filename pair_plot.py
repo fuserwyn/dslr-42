@@ -1,6 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')  # Force backend that works in headless environments
-
+from scatter_plot import pearson_correlation_pairwise
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -12,23 +12,6 @@ def load_data(filename):
     df = df.dropna(axis=1, how='all')  # Drop empty columns
     df = df.dropna(subset=["Hogwarts House"])  # Keep only labeled data
     return df
-
-def pearson_correlation_pairwise(x, y):
-    """Compute Pearson correlation using pairwise non-NaN matching."""
-    paired = [(xi, yi) for xi, yi in zip(x, y) if not pd.isna(xi) and not pd.isna(yi)]
-    if not paired:
-        return float('nan')
-    x_clean, y_clean = zip(*paired)
-    n = len(x_clean)
-    mean_x = sum(x_clean) / n
-    mean_y = sum(y_clean) / n
-    numerator = sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x_clean, y_clean))
-    denominator_x = sum((xi - mean_x) ** 2 for xi in x_clean)
-    denominator_y = sum((yi - mean_y) ** 2 for yi in y_clean)
-    denominator = (denominator_x * denominator_y) ** 0.5
-    if denominator == 0:
-        return 0
-    return numerator / denominator
 
 def find_best_features_by_correlation(df, top_k=4):
     """Automatically find top-k most correlated features to any Hogwarts House."""

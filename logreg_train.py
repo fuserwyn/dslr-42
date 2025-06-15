@@ -14,12 +14,16 @@ BATCH_SIZE = 32
 # ========== Utility Functions ==========
 
 def sigmoid(z):
+    # Sigmoid function: σ(z) = 1 / (1 + e^(-z))
     return [1 / (1 + math.exp(-x)) for x in z]
 
 def dot(X, theta):
+    # Compute z = X ⋅ θ (dot product between input and weights)
     return [sum(xi * ti for xi, ti in zip(x, theta)) for x in X]
 
 def cost_function(X, y, theta):
+    # Logistic loss function (binary cross-entropy):
+    # J(θ) = -1/m * Σ [y log(hθ(x)) + (1 - y) log(1 - hθ(x))]
     h = sigmoid(dot(X, theta))
     cost = 0.0
     m = len(y)
@@ -29,6 +33,8 @@ def cost_function(X, y, theta):
     return cost / m
 
 def batch_gradient_descent(X, y, theta, lr, iterations, cost_log):
+    # Update rule: θ := θ - α * ∇J(θ)
+    # where ∇J(θ) = (1/m) * Xᵀ(hθ(x) - y)
     m = len(y)
     for i in range(iterations):
         h = sigmoid(dot(X, theta))
@@ -43,13 +49,16 @@ def batch_gradient_descent(X, y, theta, lr, iterations, cost_log):
     return theta
 
 def stochastic_gradient_descent(X, y, theta, lr, iterations, cost_log):
+    # Stochastic version: update θ using 1 example at a time
     m = len(y)
     for i in range(iterations):
         for j in range(m):
             xi = X[j]
             yi = y[j]
+            # h = σ(x ⋅ θ)
             hi = 1 / (1 + math.exp(-sum(x * t for x, t in zip(xi, theta))))
             hi = min(max(hi, EPSILON), 1 - EPSILON)
+            # θ := θ - α * (h - y) * x
             gradient = [(hi - yi) * x for x in xi]
             theta = [t - lr * g for t, g in zip(theta, gradient)]
         if i % 100 == 0:
@@ -59,6 +68,7 @@ def stochastic_gradient_descent(X, y, theta, lr, iterations, cost_log):
     return theta
 
 def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size, cost_log):
+    # Mini-batch: use random subsets (batches) of size B < m
     m = len(y)
     for i in range(iterations):
         indices = list(range(m))
@@ -81,6 +91,7 @@ def mini_batch_gradient_descent(X, y, theta, lr, iterations, batch_size, cost_lo
     return theta
 
 def normalize_features(X):
+    # Standardization: x_norm = (x - mean) / std
     cols = list(zip(*X))
     mean = [sum(col) / len(col) for col in cols]
     std = [
@@ -91,6 +102,7 @@ def normalize_features(X):
     return X_norm, mean, std
 
 def one_vs_all(X, y, num_classes, mode="batch"):
+    # One-vs-All strategy: train one classifier per class (binary vs rest)
     n = len(X[0])
     all_theta = []
     cost_logs = []
@@ -110,6 +122,7 @@ def one_vs_all(X, y, num_classes, mode="batch"):
     return all_theta, cost_logs
 
 def plot_costs(cost_logs, mode):
+    # Plot cost function over iterations to visualize convergence
     for label, log in cost_logs:
         iters, costs = zip(*log)
         plt.plot(iters, costs, label=label)
@@ -148,8 +161,8 @@ def main():
     y = [y_map[house] for house in y_raw]
 
     X, mean, std = normalize_features(X)
-    X = [[max(min(x, 10), -10) for x in row] for row in X]
-    X = [[1.0] + row for row in X]
+    X = [[max(min(x, 10), -10) for x in row] for row in X]  # clip outliers
+    X = [[1.0] + row for row in X]  # add bias term
 
     print("🔎 Sanity check:")
     flat = sum(X, [])

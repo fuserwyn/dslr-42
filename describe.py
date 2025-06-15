@@ -36,13 +36,16 @@ def extract_numeric_columns(headers, rows):
     }
     return numeric_columns
 
-def mean(data):
-    return sum(data) / len(data)
-
 def std(data, m):
+    # Standard deviation:
+    # σ = sqrt( (1/n) * Σ (xᵢ - μ)² )
     return math.sqrt(sum((x - m) ** 2 for x in data) / len(data))
 
 def percentile(data, p):
+    # Percentile calculation using linear interpolation:
+    # 1. Sort the data
+    # 2. Compute index k = (n - 1) * (p / 100)
+    # 3. Interpolate between data[k_floor] and data[k_ceil]
     data_sorted = sorted(data)
     k = (len(data_sorted) - 1) * (p / 100)
     f = math.floor(k)
@@ -54,31 +57,38 @@ def percentile(data, p):
     return d0 + d1
 
 def mode(data):
+    # Mode: the value that appears most frequently
     count = Counter(data)
     return count.most_common(1)[0][0]
 
 def skewness(data, m, s):
+    # Skewness:
+    # skew = (1/n) * Σ( (xᵢ - μ)^3 ) / σ^3
+    # Measures asymmetry of the distribution
     n = len(data)
     return sum((x - m)**3 for x in data) / (n * (s**3)) if s != 0 else 0
 
 def kurtosis(data, m, s):
+    # Excess Kurtosis:
+    # kurtosis = (1/n) * Σ( (xᵢ - μ)^4 ) / σ^4 - 3
+    # Measures the tailedness of the distribution
     n = len(data)
     return sum((x - m)**4 for x in data) / (n * (s**4)) - 3 if s != 0 else -3
 
 def describe(columns):
-    print(f"{'Feature':<20} {'Count':>10} {'Mean':>10} {'Std':>10} {'Min':>10} {'25%':>10} {'50%':>10} {'75%':>10} {'Max':>10}")
+    print(f"{'Feature':<30} {'Count':>8} {'Mean':>12} {'Std':>12} {'Min':>12} {'25%':>12} {'50%':>12} {'75%':>12} {'Max':>12}")
     for feature, values in columns.items():
         if len(values) == 0:
             continue
         cnt = len(values)
-        mn = mean(values)
+        mn = sum(values) / cnt
         sd = std(values, mn)
         mi = min(values)
         ma = max(values)
         p25 = percentile(values, 25)
         p50 = percentile(values, 50)
         p75 = percentile(values, 75)
-        print(f"{feature:<20} {cnt:10.6f} {mn:10.6f} {sd:10.6f} {mi:10.6f} {p25:10.6f} {p50:10.6f} {p75:10.6f} {ma:10.6f}")
+        print(f"{feature:<30} {cnt:8.0f} {mn:12.3f} {sd:12.6f} {mi:12.6f} {p25:12.6f} {p50:12.6f} {p75:12.6f} {ma:12.3f}")
 
 def describe_bonus(columns):
     print("\n🎁 Bonus Statistics:")
@@ -86,7 +96,7 @@ def describe_bonus(columns):
         if len(values) == 0:
             continue
         cnt = len(values)
-        mn = mean(values)
+        mn = sum(values) / cnt
         sd = std(values, mn)
         rng = max(values) - min(values)
         mod = mode(values)

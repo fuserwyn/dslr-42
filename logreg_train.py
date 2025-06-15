@@ -5,6 +5,20 @@ import math
 import random
 import matplotlib.pyplot as plt
 
+# SGD is fast but noisy.
+
+# BGD is stable but slow.
+
+# Mini-Batch is usually the best practical choice.
+# Stochastic Gradient Descent (SGD) updates the weights after each individual data point — it's very fast, 
+# but introduces a lot of noise, causing the cost function to fluctuate.
+
+# Batch Gradient Descent (BGD) updates weights only after processing the entire dataset — it's stable, 
+# but computationally expensive and slower to converge.
+
+# Mini-Batch Gradient Descent strikes a balance by updating weights using small batches of data — 
+# it is typically faster than BGD and more stable than SGD, which makes it the most widely used in practice.
+
 # ========== Hyperparameters ==========
 LEARNING_RATE = 0.001
 NUM_ITERATIONS = 10000

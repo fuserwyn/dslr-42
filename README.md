@@ -88,7 +88,7 @@ Weights are saved to `weights.csv`. Cost plots are saved per mode.
 ### 2. Describe the Dataset
 
 ```bash
-python describe.py dataset_train.csv
+python describe.py dataset_train.csv 
 python describe.py dataset_train.csv --bonus
 ```
 
@@ -97,7 +97,7 @@ python describe.py dataset_train.csv --bonus
 ### 3. Predict Hogwarts Houses
 
 ```bash
-python logreg_predict.py dataset_test.csv
+python logreg_predict.py dataset_test.csv weights.csv
 ```
 
 Predictions are written to `houses.csv`.
